@@ -1,5 +1,4 @@
-def main():
-    print("Hello from langchain-verse!")
+from langchain_verse.main import main
 
 
 if __name__ == "__main__":
