@@ -1,5 +1,0 @@
-API_GATEWAY = "api-gateway"
-GEO_AGENT = "geo-agent"
-VELOCITY_AGENT = "velocity-agent"
-BEHAVIOR_AGENT = "behavior-agent"
-SYNTHESIS_AGENT = "synthesis-agent"
