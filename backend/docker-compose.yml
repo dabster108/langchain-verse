@@ -19,8 +19,12 @@ services:
     image: redis:7
     container_name: fraud_redis
     restart: always
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
 
   neo4j:
     image: neo4j:5
@@ -37,10 +41,14 @@ services:
 
   geo-agent:
     build:
-      context: ./services/geo-agent
+      context: .
+      dockerfile: services/geo-agent/Dockerfile
     container_name: geo_agent
     env_file:
       - .env
+    environment:
+      PYTHONPATH: /app
+      REDIS_HOST: redis
     ports:
       - "8002:8002"
     depends_on:
@@ -50,10 +58,14 @@ services:
 
   velocity-agent:
     build:
-      context: ./services/velocity-agent
+      context: .
+      dockerfile: services/velocity-agent/Dockerfile
     container_name: velocity_agent
     env_file:
       - .env
+    environment:
+      PYTHONPATH: /app
+      REDIS_HOST: redis
     ports:
       - "8001:8001"
     depends_on:
@@ -62,33 +74,64 @@ services:
 
   behavior-agent:
     build:
-      context: ./services/behavior-agent
+      context: .
+      dockerfile: services/behavior-agent/Dockerfile
     container_name: behavior_agent
     env_file:
       - .env
+    environment:
+      PYTHONPATH: /app
+      MODELS_DIR: /app/models
     ports:
       - "8003:8003"
+    volumes:
+      - ml_models:/app/models
     depends_on:
       - postgres
+      - redis
 
   synthesis-agent:
     build:
-      context: ./services/synthesis-agent
+      context: .
+      dockerfile: services/synthesis-agent/Dockerfile
     container_name: synthesis_agent
     env_file:
       - .env
+    environment:
+      PYTHONPATH: /app
+      REDIS_HOST: redis
     ports:
       - "8004:8004"
     depends_on:
       - postgres
       - redis
 
+  decision-otp-service:
+    build:
+      context: .
+      dockerfile: services/decision-otp-service/Dockerfile
+    container_name: decision_otp_service
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app
+      REDIS_HOST: redis
+    ports:
+      - "8005:8005"
+    depends_on:
+      - postgres
+      - redis
+
   api-gateway:
     build:
-      context: ./services/api-gateway
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
     container_name: fraud_api_gateway
     env_file:
       - .env
+    environment:
+      PYTHONPATH: /app
+      REDIS_HOST: redis
     ports:
       - "8000:8000"
     depends_on:
@@ -96,7 +139,16 @@ services:
       - geo-agent
       - velocity-agent
       - behavior-agent
+      - synthesis-agent
+      - decision-otp-service
 
 volumes:
   postgres_data:
   neo4j_data:
+  redis_data:
+  ml_models:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./ml/models
