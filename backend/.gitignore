@@ -9,3 +9,13 @@ __pycache__/
 
 datasets/raw/*
 !datasets/raw/README.md
+
+# Model artifacts
+ml/models/*
+!ml/models/.gitkeep
+services/behavior-agent/models/*
+!services/behavior-agent/models/.gitkeep
+
+# MLflow local stores
+ml/mlflow/runs/
+ml/mlflow/registry/
