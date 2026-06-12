@@ -19,3 +19,7 @@ services/behavior-agent/models/*
 # MLflow local stores
 ml/mlflow/runs/
 ml/mlflow/registry/
+
+# Processed datasets (regenerate via ml.features.run_pipeline)
+datasets_processed/*
+!datasets_processed/.gitkeep
