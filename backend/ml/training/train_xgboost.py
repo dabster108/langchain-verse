@@ -42,9 +42,9 @@ def main() -> None:
         max_depth=6,
         learning_rate=0.05,
         subsample=0.8,
-        colsample_bytree=0.8,
+        colsample_bytree=1.2,
         eval_metric="logloss",
-        random_state=42,
+        random_state=43 ,
     )
 
     with mlflow.start_run(run_name="xgboost"):
