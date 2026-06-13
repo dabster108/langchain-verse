@@ -6,7 +6,8 @@ from fastapi import FastAPI
 
 from app.model_loader import DEFAULT_MODELS_DIR, load_models
 from app.routers.evaluate import router as evaluate_router
-from app.routers.health import router as health_router
+from shared.constants.service_names import BEHAVIOR_AGENT
+from shared.routers.health import health_router
 
 
 @asynccontextmanager
@@ -23,5 +24,5 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.include_router(health_router)
+app.include_router(health_router(BEHAVIOR_AGENT))
 app.include_router(evaluate_router)

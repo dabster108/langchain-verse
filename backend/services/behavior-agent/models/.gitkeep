@@ -1,2 +1,0 @@
-# Serialized model artifacts (XGBoost, Random Forest, Isolation Forest, LSTM).
-# Populated by ml/training scripts or mounted from the ml/models Docker volume.

@@ -13,13 +13,9 @@ datasets/raw/*
 # Model artifacts
 ml/models/*
 !ml/models/.gitkeep
-services/behavior-agent/models/*
-!services/behavior-agent/models/.gitkeep
 
-# MLflow local stores
+# MLflow local store
 mlruns/
-ml/mlflow/runs/
-ml/mlflow/registry/
 
 # Processed datasets (regenerate via ml.features.run_pipeline)
 datasets_processed/*
