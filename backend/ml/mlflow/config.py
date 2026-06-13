@@ -2,10 +2,12 @@
 
 from pathlib import Path
 
-MLFLOW_TRACKING_URI: str = "file:./ml/mlflow/runs"
-MLFLOW_REGISTRY_URI: str = "file:./ml/mlflow/registry"
-EXPERIMENT_NAME: str = "fraud-detection"
-MODELS_OUTPUT_DIR: Path = Path(__file__).resolve().parent.parent / "models"
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+
+# Default local tracking store (view with `mlflow ui` from backend/).
+MLFLOW_TRACKING_URI: str = f"file:{BACKEND_ROOT / 'mlruns'}"
+MLFLOW_REGISTRY_URI: str = f"file:{BACKEND_ROOT / 'ml' / 'mlflow' / 'registry'}"
+MODELS_OUTPUT_DIR: Path = BACKEND_ROOT / "ml" / "models"
 
 CHAMPION_ALIAS: str = "champion"
 CHALLENGER_ALIAS: str = "challenger"
