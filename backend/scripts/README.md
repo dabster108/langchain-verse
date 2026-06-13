@@ -1,7 +1,9 @@
 # Scripts
 
-Operational scripts for loading and preparing fraud datasets.
+Operational loaders live here when implemented. For now, use:
 
-- `load_postgres/`: relational loaders for transactions and model outputs.
-- `load_neo4j/`: graph loaders and constraint/index helpers.
-- `preprocess_csv/`: CSV cleaning, sampling, and feature preparation.
+- **Feature engineering:** `python -m ml.features.run_pipeline`
+- **Model training:** `python -m ml.training.run_all_training`
+- **Offline eval:** `python eval/offline_validation.py`
+
+Postgres/Neo4j loaders will be added here when wiring sample data into Docker volumes.

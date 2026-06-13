@@ -11,7 +11,8 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
+BACKEND_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_MODELS_DIR = BACKEND_ROOT / "ml" / "models"
 
 BEHAVIOR_FEATURE_NAMES: list[str] = [
     "amount",
@@ -39,7 +40,6 @@ class BehaviorModels:
 
 def _load_optional(path: Path) -> object | None:
     if not path.exists():
-        logger.warning("Model artifact not found: %s", path)
         return None
     return joblib.load(path)
 
@@ -48,10 +48,11 @@ def load_models(models_dir: Path | None = None) -> BehaviorModels:
     """Load all available model artifacts; missing files are tolerated."""
     base = models_dir or DEFAULT_MODELS_DIR
     bundle = BehaviorModels(
-        xgboost=_load_optional(base / "xgboost.joblib"),
+        xgboost=_load_optional(base / "xgboost_model.pkl") or _load_optional(base / "xgboost.joblib"),
         random_forest=_load_optional(base / "random_forest.joblib"),
-        isolation_forest=_load_optional(base / "isolation_forest.joblib"),
-        lstm=_load_optional(base / "lstm.pt"),
+        isolation_forest=_load_optional(base / "isolation_forest_model.pkl")
+        or _load_optional(base / "isolation_forest.joblib"),
+        lstm=_load_optional(base / "lstm_model.pt") or _load_optional(base / "lstm.pt"),
     )
     bundle.loaded = any(
         m is not None for m in (bundle.xgboost, bundle.random_forest, bundle.isolation_forest, bundle.lstm)

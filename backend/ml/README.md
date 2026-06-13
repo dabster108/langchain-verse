@@ -1,53 +1,44 @@
-# ML Training Pipeline
+# ML Pipeline
 
-Weekly retraining and challenger–champion promotion workflow for the fraud detection models.
+Offline feature engineering, model training, and experiment tracking.
+
+## Quick commands (from `backend/`)
+
+```bash
+uv sync --all-groups          # one env for services + ML
+python -m ml.features.run_pipeline
+python -m ml.training.run_all_training
+mlflow ui --backend-store-uri mlruns
+```
 
 ## Layout
 
-```
-ml/
-├── training/          # Training scripts (XGBoost, Isolation Forest, LSTM, meta-learner)
-├── mlflow/            # Experiment tracking + model registry config
-└── models/            # Serialized artifacts (gitignored, Docker volume mount)
-```
+| Path | Purpose |
+|------|---------|
+| `features/` | Clean raw CSVs → `datasets_processed/feature_table.csv` |
+| `training/` | Train XGBoost, Isolation Forest, LSTM, meta-learner |
+| `models/` | Serialized artifacts (gitignored) — mounted into `behavior-agent` |
+| `mlflow/config.py` | Tracking URI (`backend/mlruns/`) |
 
-## Weekly retraining workflow
+## Small-dataset caveat
 
-1. **Extract** — load labelled data from `backend/datasets/` (and production Postgres in prod).
-2. **Train** — run each script; metrics are logged to MLflow under experiment `fraud-detection`.
-3. **Evaluate** — compare challenger PR-AUC / AUROC against the current champion (see `eval/offline_validation.py`).
-4. **Promote** — if challenger beats champion by ≥ `PROMOTION_MIN_DELTA` (default 0.01 PR-AUC), alias it as `champion` in the MLflow registry and copy artifacts to `ml/models/`.
-5. **Deploy** — `behavior-agent` hot-reloads from `services/behavior-agent/models/` (volume-mounted from `ml/models/`).
+~1,000 rows / ~18 fraud cases. Metrics will be unstable; LSTM sequences are mostly length-1. Code is production-shaped — re-validate on full data.
 
-## Run training locally
+## Artifacts
 
-From the `backend/` directory:
+| File | Consumer |
+|------|----------|
+| `feature_columns.json` | Tree models + inference alignment |
+| `xgboost_model.pkl` | Behavior Agent |
+| `isolation_forest_model.pkl` | Behavior Agent |
+| `lstm_model.pt` | Behavior Agent (when enough history) |
+| `meta_learner_model.pkl` | Synthesis Agent |
 
-```bash
-python -m ml.training.run_all_training
-```
+## MLflow experiments
 
-Individual scripts:
+- `behavior_agent_xgboost`
+- `behavior_agent_isolation_forest`
+- `behavior_agent_lstm`
+- `synthesis_meta_learner`
 
-```bash
-python -m ml.training.train_xgboost
-python -m ml.training.train_isolation_forest
-python -m ml.training.train_lstm
-python -m ml.training.train_meta_learner
-```
-
-Input: `datasets_processed/feature_table.csv` (from `ml.features.run_pipeline`).
-
-## MLflow
-
-- Tracking URI: `file:./mlruns/` (see `ml/mlflow/README.md`)
-- View runs: `mlflow ui --backend-store-uri mlruns` (from `backend/`)
-
-## Champion / challenger aliases
-
-| Alias       | Role                                              |
-|-------------|---------------------------------------------------|
-| `champion`  | Production model served by `behavior-agent`       |
-| `challenger`| Candidate from latest weekly retrain              |
-
-Promotion requires the challenger to exceed the champion on PR-AUC by at least 0.01 on the held-out eval set (`fraud_labels_eval_HIDDEN.csv` via `eval/offline_validation.py`).
+View at http://127.0.0.1:5000 after `mlflow ui --backend-store-uri mlruns`.

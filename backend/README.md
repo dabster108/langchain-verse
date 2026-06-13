@@ -51,46 +51,62 @@ Everything runs as **independent Dockerized microservices** that talk to each ot
 ---
  
 ## 2. Folder Structure
- 
+
 ```
 backend/
-├── datasets/              # Sample/training CSVs + JSON (synthetic, GIBL hackathon format)
-├── docker/                # DB init scripts (Postgres schema, Neo4j constraints, Redis config)
-├── scripts/                # One-off loaders: CSV -> Postgres / Neo4j
-├── ml/                     # Offline model training (XGBoost, LSTM, IsoForest, RF meta-learner)
-│   ├── training/           # train_*.py scripts, run via MLflow
-│   ├── mlflow/             # MLflow tracking config
-│   └── models/             # Trained model artifacts (gitignored, mounted into behavior-agent)
-├── eval/                   # Offline evaluation notebooks (precision/recall/F1/AUROC vs datasets/)
-├── services/               # The 6 microservices — see section 3
-└── shared/                 # Code shared across services (schemas, config, redis utils)
+├── pyproject.toml         # single uv project — all deps + dev tools
+├── run_service.py         # unified entrypoint for every microservice
+├── Dockerfile             # one image, SERVICE env selects which agent
+├── docker-compose.yml
+├── datasets/              # raw sample CSVs + JSON
+├── datasets_processed/    # feature_table.csv (from ml.features.run_pipeline)
+├── docker/                # Postgres, Neo4j, Redis init
+├── ml/
+│   ├── features/          # data cleaning + feature engineering
+│   ├── training/          # offline model training scripts
+│   ├── mlflow/            # tracking config
+│   └── models/            # trained artifacts (gitignored)
+├── eval/                  # offline validation script + notebook
+├── services/              # agent code only (app/ + domain logic)
+├── shared/                # schemas, config, redis utils, health router
+└── tests/                 # consolidated pytest suite
 ```
- 
+
 ---
- 
+
 ## 3. The Services
- 
-Each service is a standalone FastAPI app with its own Dockerfile. They're all structured the same way:
- 
+
+Each agent is a FastAPI app under `services/<name>/app/`. All share one dependency file and one Docker image.
+
 ```
-services/<name>/
-├── Dockerfile
-├── pyproject.toml
-├── main.py            # entrypoint
-├── app/
-│   ├── main.py         # FastAPI app + routes
-│   └── routers/        # health checks, etc.
-└── tests/
+services/<name>/app/
+├── main.py           # FastAPI app
+├── routers/          # /evaluate endpoints
+└── …                 # domain modules (synthesis, otp, model_loader, etc.)
 ```
- 
-| Service | Paper Section | What it does |
+
+| Service | Port | What it does |
 |---|---|---|
-| **api-gateway** | Layer 1 (Ingestion) | Public entrypoint. Receives a transaction, normalizes it, publishes it to the Redis stream that fans out to the 3 agents. |
-| **velocity-agent** | Layer 2.1 | Checks tx count (2min/1hr), amount vs. historical average, 5x spike detection, balance integrity, type-mismatch — all from Redis sliding-window counters. Fast (~1–2ms). |
-| **geo-agent** | Layer 2.2 | Travel-feasibility (impossible travel), device fingerprint novelty, shared-IP detection (Neo4j), circular money flow A→B→C→A (Neo4j), fraud-ring proximity. ~20–50ms. |
-| **behavior-agent** | Layer 2.3 | Runs XGBoost + Isolation Forest (+ LSTM if user has 50+ transactions) and blends their outputs. Also computes **SHAP values** for the prediction. ~100ms. |
-| **synthesis-agent** | Layer 4 | Takes the 3 (risk, confidence) pairs, classifies the likely fraud pattern, looks up Layer 1 (transaction-type) and Layer 2 (fraud-pattern) weight tables, blends them 50/50, and runs the confidence-weighted fusion formula. Also runs the disagreement check. |
-| **decision-otp-service** | Layer 5 | Maps the synthesis score to PASS / OTP / BLOCK using τ_low=0.30, τ_high=0.70. If OTP, fires a dual-path challenge (SMS via Sparrow + email). Both must pass within 3 minutes or the transaction auto-blocks. |
+| **api-gateway** | 8000 | Public entrypoint (ingestion) |
+| **velocity-agent** | 8001 | Transaction velocity risk (Redis counters) |
+| **geo-agent** | 8002 | Location + graph-context risk (Neo4j) |
+| **behavior-agent** | 8003 | XGBoost / IsoForest / LSTM + SHAP |
+| **synthesis-agent** | 8004 | Two-layer weight blending + fusion |
+| **decision-otp-service** | 8005 | PASS / OTP / BLOCK + dual-path OTP |
+
+**Run one service locally:**
+
+```bash
+cd backend
+uv sync --all-groups
+uv run python run_service.py behavior-agent   # or geo-agent, synthesis-agent, …
+```
+
+**Run tests:**
+
+```bash
+uv run pytest
+```
  
 ---
  
@@ -107,6 +123,7 @@ services/<name>/
 | `shared/utils/redis_pubsub.py` | Thin wrapper for publishing/subscribing to Redis Streams. |
 | `shared/utils/serialization.py` | JSON encode/decode helpers (datetime, Decimal, etc.). |
 | `shared/explainability/shap_utils.py` | Shared SHAP computation helpers used by `behavior-agent`. |
+| `shared/routers/health.py` | Shared `/health` endpoint factory used by all services. |
  
 ---
  
@@ -118,7 +135,7 @@ services/<name>/
 | **Neo4j** | Account/merchant/device graph — used for shared-IP detection, circular flow detection (A→B→C→A), and fraud-ring proximity (e.g. the COMM-042 smurfing ring) | `docker/neo4j/constraints.cypher` |
 | **Redis** | Sliding-window counters for the Velocity Agent (`user:{id}:count_2min`, `user:{id}:count_1hr`, etc.), recency caches for the Geo Agent, and the Streams used for inter-service messaging | `docker/redis/redis.conf` |
  
-To populate Postgres/Neo4j from the sample data in `datasets/`, see `scripts/load_postgres/` and `scripts/load_neo4j/`.
+To populate Postgres/Neo4j from sample data, use loaders under `scripts/` (TBD) or load from `datasets_processed/` directly.
  
 ---
  
@@ -150,24 +167,26 @@ where `r_i` = risk score, `c_i` = confidence score from each agent.
 ---
  
 ## 7. Running Locally
- 
+
 ```bash
-# 1. Clone and enter the backend directory
 cd backend
- 
-# 2. Bring up everything (Postgres, Neo4j, Redis, and all 6 services)
-docker-compose up --build
- 
-# 3. Load sample data into Postgres and Neo4j
-#    (see scripts/load_postgres/README.md and scripts/load_neo4j/README.md)
- 
-# 4. Send a test transaction through the API gateway
-curl -X POST http://localhost:8000/evaluate \
-  -H "Content-Type: application/json" \
-  -d @datasets/sample_transaction.json
+uv sync --all-groups
+
+# Infrastructure + all services
+docker compose up --build
+
+# Or run a single service without Docker
+uv run python run_service.py api-gateway
+
+# Feature pipeline + training
+python -m ml.features.run_pipeline
+python -m ml.training.run_all_training
+
+# Tests
+uv run pytest
 ```
- 
-Each service also exposes a `/health` endpoint for checking it came up correctly.
+
+Each service exposes `GET /health`.
  
 ---
  
@@ -182,7 +201,7 @@ The Behavior Agent's models are **not trained at request time** — they're trai
 | `ml/training/train_lstm.py` | Per-user sequence model (only for users with 50+ tx) | Weekly, per cohort |
 | `ml/training/train_meta_learner.py` | Random Forest over `(r1,r2,r3,c1,c2,c3,t)` tuples | Weekly |
  
-All runs are tracked via **MLflow** (`ml/mlflow/`). Trained artifacts land in `ml/models/`, which is mounted into `behavior-agent` as a Docker volume. The paper's challenger-champion pattern means a newly trained model is shadow-evaluated before being promoted to production — see `ml/training/README.md` for the promotion workflow.
+All runs are tracked via **MLflow** (`mlruns/`). Trained artifacts land in `ml/models/`, bind-mounted into `behavior-agent`. See `ml/README.md`.
  
 ---
  
