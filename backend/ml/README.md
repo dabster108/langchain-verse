@@ -21,21 +21,27 @@ ml/
 
 ## Run training locally
 
-From the repository root (with `uv` and dependencies installed):
+From the `backend/` directory:
 
 ```bash
-cd backend
-uv run python -m ml.training.train_xgboost --data-dir datasets
-uv run python -m ml.training.train_isolation_forest --data-dir datasets
-uv run python -m ml.training.train_lstm --data-dir datasets
-uv run python -m ml.training.train_meta_learner --data-dir datasets
+python -m ml.training.run_all_training
 ```
+
+Individual scripts:
+
+```bash
+python -m ml.training.train_xgboost
+python -m ml.training.train_isolation_forest
+python -m ml.training.train_lstm
+python -m ml.training.train_meta_learner
+```
+
+Input: `datasets_processed/feature_table.csv` (from `ml.features.run_pipeline`).
 
 ## MLflow
 
-- Tracking URI: `file:./ml/mlflow/runs`
-- Registry URI: `file:./ml/mlflow/registry`
-- View runs: `mlflow ui --backend-store-uri ml/mlflow/runs`
+- Tracking URI: `file:./mlruns/` (see `ml/mlflow/README.md`)
+- View runs: `mlflow ui --backend-store-uri mlruns` (from `backend/`)
 
 ## Champion / challenger aliases
 

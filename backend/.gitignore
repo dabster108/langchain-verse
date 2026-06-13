@@ -17,6 +17,7 @@ services/behavior-agent/models/*
 !services/behavior-agent/models/.gitkeep
 
 # MLflow local stores
+mlruns/
 ml/mlflow/runs/
 ml/mlflow/registry/
 
