@@ -43,9 +43,10 @@ def _app(service: str):
 async def test_health(service: str, expected: str) -> None:
     app = _app(service)
     if service == "behavior-agent":
-        from app.model_loader import load_models
+        from app.model_loader import load_feature_table_index, load_models
 
         app.state.models = load_models()
+        app.state.feature_index = load_feature_table_index()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.get("/health")
@@ -83,15 +84,25 @@ async def test_velocity_evaluate() -> None:
 @pytest.mark.asyncio
 async def test_behavior_evaluate_with_shap() -> None:
     app = _app("behavior-agent")
-    from app.model_loader import BEHAVIOR_FEATURE_NAMES, load_models
+    from app.model_loader import load_feature_table_index, load_models
 
-    app.state.models = load_models()
+    models = load_models()
+    app.state.models = models
+    app.state.feature_index = load_feature_table_index()
     transport = ASGITransport(app=app)
-    payload = {
-        "transaction_id": "txn-003",
-        "features": [1000.0, 14.0, 2.0, 3.0, 10.0, 500.0, 0.1, 30.0, 0.0, 5.0],
-    }
-    assert len(payload["features"]) == len(BEHAVIOR_FEATURE_NAMES)
+
+    if models.loaded and app.state.feature_index:
+        txn_id = next(iter(app.state.feature_index))
+        payload = {"transaction_id": txn_id}
+    else:
+        from app.model_loader import BEHAVIOR_FEATURE_NAMES
+
+        payload = {
+            "transaction_id": "txn-heuristic",
+            "features": [1000.0, 14.0, 2.0, 3.0, 10.0, 500.0, 0.1, 30.0, 0.0, 5.0],
+        }
+        assert len(payload["features"]) == len(BEHAVIOR_FEATURE_NAMES)
+
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.post("/evaluate/risk", json=payload)
     body = response.json()

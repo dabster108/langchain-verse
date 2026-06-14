@@ -4,7 +4,12 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
-from app.model_loader import DEFAULT_MODELS_DIR, load_models
+from app.model_loader import (
+    DEFAULT_FEATURE_TABLE,
+    DEFAULT_MODELS_DIR,
+    load_feature_table_index,
+    load_models,
+)
 from app.routers.evaluate import router as evaluate_router
 from shared.constants.service_names import BEHAVIOR_AGENT
 from shared.routers.health import health_router
@@ -13,7 +18,10 @@ from shared.routers.health import health_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     models_dir = Path(os.environ.get("MODELS_DIR", str(DEFAULT_MODELS_DIR)))
+    feature_table = Path(os.environ.get("FEATURE_TABLE_PATH", str(DEFAULT_FEATURE_TABLE)))
+
     app.state.models = load_models(models_dir)
+    app.state.feature_index = load_feature_table_index(feature_table)
     yield
 
 

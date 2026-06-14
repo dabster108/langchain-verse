@@ -16,6 +16,7 @@ ml/models/*
 
 # MLflow local store
 mlruns/
+mlruns/**
 
 # Processed datasets (regenerate via ml.features.run_pipeline)
 datasets_processed/*

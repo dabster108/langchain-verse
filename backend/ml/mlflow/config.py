@@ -4,8 +4,8 @@ from pathlib import Path
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
-# Default local tracking store (view with `mlflow ui` from backend/).
-MLFLOW_TRACKING_URI: str = f"file:{BACKEND_ROOT / 'mlruns'}"
+# SQLite tracking store (MLflow 3+ deprecates plain file://mlruns for new experiments).
+MLFLOW_TRACKING_URI: str = f"sqlite:///{BACKEND_ROOT / 'mlruns' / 'mlflow.db'}"
 MLFLOW_REGISTRY_URI: str = f"file:{BACKEND_ROOT / 'ml' / 'mlflow' / 'registry'}"
 MODELS_OUTPUT_DIR: Path = BACKEND_ROOT / "ml" / "models"
 

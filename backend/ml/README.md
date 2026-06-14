@@ -5,10 +5,17 @@ Offline feature engineering, model training, and experiment tracking.
 ## Quick commands (from `backend/`)
 
 ```bash
-uv sync --all-groups          # one env for services + ML
+uv sync --all-groups          # services + ML (mlflow)
+
+# One-shot: features + train → ml/models/
+python train.py
+
+# Or step by step:
 python -m ml.features.run_pipeline
 python -m ml.training.run_all_training
-mlflow ui --backend-store-uri mlruns
+
+# View MLflow runs
+mlflow ui --backend-store-uri sqlite:///mlruns/mlflow.db
 ```
 
 ## Layout
@@ -29,6 +36,7 @@ mlflow ui --backend-store-uri mlruns
 | File | Consumer |
 |------|----------|
 | `feature_columns.json` | Tree models + inference alignment |
+| `training_manifest.json` | Last training run metrics + artifact checklist |
 | `xgboost_model.pkl` | Behavior Agent |
 | `isolation_forest_model.pkl` | Behavior Agent |
 | `lstm_model.pt` | Behavior Agent (when enough history) |

@@ -178,15 +178,15 @@ docker compose up --build
 # Or run a single service without Docker
 uv run python run_service.py api-gateway
 
-# Feature pipeline + training
-python -m ml.features.run_pipeline
-python -m ml.training.run_all_training
-
-# Tests
-uv run pytest
+# Feature pipeline + training → ml/models/
+python train.py
 ```
 
 Each service exposes `GET /health`.
+
+```bash
+uv run pytest
+```
  
 ---
  
