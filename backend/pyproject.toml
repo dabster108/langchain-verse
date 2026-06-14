@@ -25,9 +25,11 @@ dependencies = [
 [dependency-groups]
 dev = [
     "httpx>=0.28.0",
-    "mlflow>=2.20.0",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
+]
+ml = [
+    "mlflow>=2.20.0",
 ]
 
 [project.scripts]
