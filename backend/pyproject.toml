@@ -20,6 +20,7 @@ dependencies = [
     "torch>=2.12.0",
     "uvicorn>=0.47.0",
     "xgboost>=3.2.0",
+    "neo4j>=6.2.0",
 ]
 
 [dependency-groups]
