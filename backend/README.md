@@ -88,7 +88,7 @@ services/<name>/app/
 | Service | Port | What it does |
 |---|---|---|
 | **api-gateway** | 8000 | Public entrypoint (ingestion) |
-| **velocity-agent** | 8001 | Transaction velocity risk (Redis counters) |
+| **velocity-agent** | 8001 | Transaction velocity risk from Postgres snapshots |
 | **geo-agent** | 8002 | Location + graph-context risk (Neo4j) |
 | **behavior-agent** | 8003 | XGBoost / IsoForest / LSTM + SHAP |
 | **synthesis-agent** | 8004 | Two-layer weight blending + fusion |
@@ -133,7 +133,7 @@ uv run pytest
 |---|---|---|
 | **PostgreSQL** | Transaction ledger, customer profiles, device fingerprints, OTP logs, audit trail (verdict + SHAP + weights per decision), LSTM training corpus | `docker/postgres/init.sql` |
 | **Neo4j** | Account/merchant/device graph — used for shared-IP detection, circular flow detection (A→B→C→A), and fraud-ring proximity (e.g. the COMM-042 smurfing ring) | `docker/neo4j/constraints.cypher` |
-| **Redis** | Sliding-window counters for the Velocity Agent (`user:{id}:count_2min`, `user:{id}:count_1hr`, etc.), recency caches for the Geo Agent, and the Streams used for inter-service messaging | `docker/redis/redis.conf` |
+| **Redis** | Recency caches for the Geo Agent and the Streams used for inter-service messaging | `docker/redis/redis.conf` |
  
 To populate Postgres/Neo4j from sample data, use loaders under `scripts/` (TBD) or load from `datasets_processed/` directly.
  

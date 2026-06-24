@@ -31,23 +31,29 @@ The risk score is the sum of these rule contributions, capped at `1.0`:
 From `backend/services/velocity-agent`:
 
 ```bash
-uvicorn app.main:app --reload --port 8002
+uvicorn app.main:app --reload --port 8001
 ```
 
 The service loads `DATABASE_URL` from `backend/.env`.
+
+From `backend`, the shared Docker Compose stack runs this service on port `8001`:
+
+```bash
+docker compose up --build velocity-agent
+```
 
 ## Endpoints
 
 Health check:
 
 ```bash
-curl http://localhost:8002/health
+curl http://localhost:8001/health
 ```
 
 Evaluate transaction velocity risk:
 
 ```bash
-curl -X POST http://localhost:8002/evaluate \
+curl -X POST http://localhost:8001/evaluate \
   -H "Content-Type: application/json" \
   -d '{"txn_id": "TXN-20260101-00000001", "account_id": "ACC-0000001"}'
 ```
