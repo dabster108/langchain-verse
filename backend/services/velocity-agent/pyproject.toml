@@ -1,0 +1,20 @@
+[project]
+name = "velocity-agent"
+version = "0.1.0"
+description = "FastAPI microservice for transaction velocity fraud risk scoring."
+requires-python = ">=3.10,<3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "psycopg2-binary",
+    "sqlalchemy",
+    "python-dotenv",
+    "pytest",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
