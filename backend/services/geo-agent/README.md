@@ -52,19 +52,19 @@ The service reads `DATABASE_URL`, `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASS
 
 ```bash
 cd backend/services/geo-agent
-uvicorn app.main:app --reload --port 8003
+uvicorn app.main:app --reload --port 8002
 ```
 
 Health check:
 
 ```bash
-curl http://localhost:8003/health
+curl http://localhost:8002/health
 ```
 
 Evaluate a transaction:
 
 ```bash
-curl -X POST http://localhost:8003/evaluate \
+curl -X POST http://localhost:8002/evaluate \
   -H "Content-Type: application/json" \
   -d '{"txn_id": "TXN-20260101-00000001", "account_id": "ACC-0000001"}'
 ```
@@ -102,12 +102,37 @@ The Neo4j loader expects COMM-042 metadata at `backend/datasets/comm042_ring_mem
 To test manually, pick an account id from that JSON file's `ring_members` list or its `collector_account`, then call:
 
 ```bash
-curl -X POST http://localhost:8003/evaluate \
+curl -X POST http://localhost:8002/evaluate \
   -H "Content-Type: application/json" \
   -d '{"txn_id": "TXN-20260101-00000001", "account_id": "ACC-COMM042-001"}'
 ```
 
 If the graph has a shortest path to a fraud seed within three hops, the `fraud_ring_proximity_risk` field will be non-zero and `fraud_ring_details.is_near_fraud_seed` will be `true`.
+
+## Single Backend API
+
+When the full backend stack is running, the API Gateway exposes Geo and Velocity through one backend port:
+
+```bash
+cd backend
+docker compose up --build api-gateway
+```
+
+Call Geo through the gateway:
+
+```bash
+curl -X POST http://localhost:8000/evaluate/geo \
+  -H "Content-Type: application/json" \
+  -d '{"txn_id": "TXN-20260101-00000001", "account_id": "ACC-0000001"}'
+```
+
+Call Velocity and Geo together:
+
+```bash
+curl -X POST http://localhost:8000/evaluate/both \
+  -H "Content-Type: application/json" \
+  -d '{"txn_id": "TXN-20260101-00000001", "account_id": "ACC-0000001"}'
+```
 
 ## Tests
 
