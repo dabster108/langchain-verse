@@ -198,6 +198,8 @@ services:
       SERVICE: api-gateway
       PORT: 8000
       REDIS_HOST: redis
+      VELOCITY_AGENT_URL: http://velocity-agent:8001
+      GEO_AGENT_URL: http://geo-agent:8002
     ports: ["8000:8000"]
     depends_on:
       redis:
