@@ -200,6 +200,9 @@ services:
       REDIS_HOST: redis
       VELOCITY_AGENT_URL: http://velocity-agent:8001
       GEO_AGENT_URL: http://geo-agent:8002
+      BEHAVIOR_AGENT_URL: http://behavior-agent:8003
+      SYNTHESIS_AGENT_URL: http://synthesis-agent:8004
+      DECISION_OTP_URL: http://decision-otp-service:8005
     ports: ["8000:8000"]
     depends_on:
       redis:
