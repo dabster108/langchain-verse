@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.pool import QueuePool
 
-from app.agents import behavior_agent, geo_agent, velocity_agent
+from app.agents import behavior_agent, decision_agent, geo_agent, velocity_agent
 from app.orchestrator import evaluate_transaction
 
 try:
@@ -60,6 +60,12 @@ app = FastAPI(
 class EvaluateRequest(BaseModel):
     txn_id: str = Field(..., min_length=1)
     account_id: str = Field(..., min_length=1)
+
+
+class VerifyOTPRequest(BaseModel):
+    otp_session_id: str = Field(..., min_length=1)
+    sms_otp: str | None = Field(default=None, min_length=6, max_length=6)
+    email_otp: str | None = Field(default=None, min_length=6, max_length=6)
 
 
 @app.on_event("startup")
@@ -111,6 +117,8 @@ def evaluate(body: EvaluateRequest) -> dict:
         behavior_agent.TransactionNotFoundError,
     ):
         raise HTTPException(status_code=404, detail="Transaction not found") from None
+    except decision_agent.InvalidScoreError:
+        raise HTTPException(status_code=400, detail="Invalid score") from None
     except SQLAlchemyError:
         logger.error("Database error while evaluating txn_id=%s:\n%s", body.txn_id, traceback.format_exc())
         app.state.db_available = False
@@ -118,3 +126,55 @@ def evaluate(body: EvaluateRequest) -> dict:
     except Exception:
         logger.error("Unexpected error while evaluating txn_id=%s:\n%s", body.txn_id, traceback.format_exc())
         raise
+
+
+@app.post("/verify-otp")
+def verify_otp(body: VerifyOTPRequest) -> dict:
+    if engine is None or not getattr(app.state, "db_available", False):
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    try:
+        with engine.connect() as connection:
+            return decision_agent.verify_otp_session(
+                body.otp_session_id,
+                body.sms_otp,
+                body.email_otp,
+                connection,
+            )
+    except decision_agent.OTPExpiredError:
+        raise HTTPException(status_code=410, detail="OTP expired, request new verification") from None
+    except decision_agent.OTPNotFoundError:
+        raise HTTPException(status_code=404, detail="OTP session not found") from None
+    except SQLAlchemyError:
+        logger.error("Database error while verifying otp_session_id=%s:\n%s", body.otp_session_id, traceback.format_exc())
+        raise HTTPException(status_code=503, detail="Database unavailable") from None
+
+
+@app.get("/otp-status/{otp_session_id}")
+def otp_status(otp_session_id: str) -> dict:
+    if engine is None or not getattr(app.state, "db_available", False):
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    try:
+        with engine.connect() as connection:
+            return decision_agent.get_otp_status(otp_session_id, connection)
+    except decision_agent.OTPNotFoundError:
+        raise HTTPException(status_code=404, detail="OTP session not found") from None
+    except SQLAlchemyError:
+        logger.error("Database error while checking otp_session_id=%s:\n%s", otp_session_id, traceback.format_exc())
+        raise HTTPException(status_code=503, detail="Database unavailable") from None
+
+
+@app.post("/otp-resend/{otp_session_id}")
+def otp_resend(otp_session_id: str) -> dict:
+    if engine is None or not getattr(app.state, "db_available", False):
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    try:
+        with engine.connect() as connection:
+            return decision_agent.resend_otp_session(otp_session_id, connection)
+    except decision_agent.OTPNotFoundError:
+        raise HTTPException(status_code=404, detail="OTP session not found") from None
+    except SQLAlchemyError:
+        logger.error("Database error while resending otp_session_id=%s:\n%s", otp_session_id, traceback.format_exc())
+        raise HTTPException(status_code=503, detail="Database unavailable") from None
