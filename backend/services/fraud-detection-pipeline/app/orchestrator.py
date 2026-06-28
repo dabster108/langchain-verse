@@ -39,7 +39,13 @@ def evaluate_transaction(
         geo_breakdown={**geo.get("breakdown", {}), **geo.get("fraud_ring_details", {})},
         behavior_breakdown=behavior.get("breakdown"),
     )
-    decision = decision_agent.evaluate_decision(synthesis["final_score"])
+    decision = decision_agent.evaluate_decision(
+        final_score=synthesis["final_score"],
+        fraud_pattern=synthesis["fraud_pattern"],
+        account_id=account_id,
+        txn_id=txn_id,
+        db_connection=db_connection,
+    )
     latency_ms = int((time.perf_counter() - started) * 1000)
 
     result = {

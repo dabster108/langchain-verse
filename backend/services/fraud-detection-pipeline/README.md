@@ -43,6 +43,40 @@ curl -X POST http://localhost:8001/evaluate \
   -d '{"txn_id": "TXN-20260101-00000001", "account_id": "ACC-0000001"}'
 ```
 
+## Decision And OTP
+
+The Decision Agent is the final gate from paper §IV-F:
+
+- `PASS`: final score `< 0.30`; transaction is approved without extra verification.
+- `OTP`: final score `0.30-0.70`; transaction requires dual-path OTP.
+- `BLOCK`: final score `> 0.70`; transaction is blocked and the account is flagged for KYC review.
+
+For OTP, both SMS and EMAIL codes must verify before the transaction is allowed. If either channel expires or reaches 3 failed attempts, the transaction is blocked. If SMS fails but email succeeds, the session is marked with `sim_swap_suspected=true`.
+
+Verify OTP:
+
+```bash
+curl -X POST http://localhost:8001/verify-otp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "otp_session_id": "OTP-A3F9B2",
+    "sms_otp": "123456",
+    "email_otp": "654321"
+  }'
+```
+
+Check OTP status:
+
+```bash
+curl http://localhost:8001/otp-status/OTP-A3F9B2
+```
+
+Resend OTP:
+
+```bash
+curl -X POST http://localhost:8001/otp-resend/OTP-A3F9B2
+```
+
 ## Synthesis Weights
 
 The Synthesis Agent applies Equation 1 from the paper by blending transaction-type weights and fraud-pattern weights:
