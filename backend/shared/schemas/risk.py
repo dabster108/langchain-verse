@@ -1,4 +1,10 @@
-from enum import StrEnum
+try:
+    from enum import StrEnum
+except ImportError:  # Python 3.10 compatibility for service-specific runtimes.
+    from enum import Enum
+
+    class StrEnum(str, Enum):
+        pass
 
 from pydantic import BaseModel, Field
 

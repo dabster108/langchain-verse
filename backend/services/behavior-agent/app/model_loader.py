@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -36,6 +37,7 @@ BEHAVIOR_FEATURE_NAMES: list[str] = [
 class BehaviorModels:
     xgboost: object | None = None
     isolation_forest: object | None = None
+    lstm_model: object | None = None
     lstm_state: dict | None = None
     meta_learner: object | None = None
     feature_columns: list[str] = field(default_factory=list)
@@ -45,7 +47,10 @@ class BehaviorModels:
 def _load_joblib(path: Path) -> object | None:
     if not path.exists():
         return None
-    return joblib.load(path)
+    started = time.perf_counter()
+    model = joblib.load(path)
+    logger.info("Loaded %s from %s in %sms", path.stem, path, int((time.perf_counter() - started) * 1000))
+    return model
 
 
 def _load_torch_checkpoint(path: Path) -> dict | None:
@@ -54,6 +59,51 @@ def _load_torch_checkpoint(path: Path) -> dict | None:
     import torch
 
     return torch.load(path, map_location="cpu", weights_only=False)
+
+
+def _load_lstm_model(path: Path) -> object | None:
+    checkpoint = _load_torch_checkpoint(path)
+    if checkpoint is None:
+        return None
+
+    import torch
+    import torch.nn as nn
+
+    class FraudLSTM(nn.Module):
+        def __init__(self, input_dim: int, hidden_dim: int = 64, num_layers: int = 2, dropout: float = 0.2):
+            super().__init__()
+            self.lstm = nn.LSTM(
+                input_dim,
+                hidden_dim,
+                num_layers=num_layers,
+                batch_first=True,
+                dropout=dropout if num_layers > 1 else 0.0,
+            )
+            self.head = nn.Sequential(
+                nn.Linear(hidden_dim, 32),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+                nn.Linear(32, 1),
+            )
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            out, _ = self.lstm(x)
+            last_hidden = out[:, -1, :]
+            return self.head(last_hidden)
+
+    if hasattr(checkpoint, "eval"):
+        checkpoint.eval()
+        return checkpoint
+
+    if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
+        started = time.perf_counter()
+        model = FraudLSTM(input_dim=int(checkpoint.get("input_dim", 5)))
+        model.load_state_dict(checkpoint["state_dict"])
+        model.eval()
+        logger.info("Loaded LSTM from %s in %sms", path, int((time.perf_counter() - started) * 1000))
+        return model
+
+    return checkpoint
 
 
 def _load_feature_columns(base: Path) -> list[str]:
@@ -102,13 +152,20 @@ def load_models(models_dir: Path | None = None) -> BehaviorModels:
     bundle = BehaviorModels(
         xgboost=_load_joblib(base / "xgboost_model.pkl"),
         isolation_forest=_load_joblib(base / "isolation_forest_model.pkl"),
+        lstm_model=_load_lstm_model(base / "lstm_model.pt"),
         lstm_state=_load_torch_checkpoint(base / "lstm_model.pt"),
         meta_learner=meta_model,
         feature_columns=feature_columns,
     )
     bundle.loaded = any(
         m is not None
-        for m in (bundle.xgboost, bundle.isolation_forest, bundle.lstm_state, bundle.meta_learner)
+        for m in (
+            bundle.xgboost,
+            bundle.isolation_forest,
+            bundle.lstm_model,
+            bundle.lstm_state,
+            bundle.meta_learner,
+        )
     )
     if bundle.loaded:
         logger.info("Loaded models from %s (%d feature columns)", base, len(feature_columns))

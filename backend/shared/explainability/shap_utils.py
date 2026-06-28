@@ -57,6 +57,25 @@ def compute_shap_for_xgboost(
     return contributions_to_explanation(feature_names, values, base_value=base)
 
 
+def compute_shap_values(
+    feature_vector: np.ndarray,
+    model: Any,
+    feature_names: list[str] | None = None,
+) -> np.ndarray:
+    """Return raw SHAP values for callers that need custom top-k formatting."""
+    import shap
+
+    matrix = np.asarray(feature_vector, dtype=float)
+    if matrix.ndim == 1:
+        matrix = matrix.reshape(1, -1)
+
+    explainer = shap.TreeExplainer(model)
+    shap_output = explainer.shap_values(matrix)
+    if isinstance(shap_output, list):
+        shap_output = shap_output[1] if len(shap_output) > 1 else shap_output[0]
+    return np.asarray(shap_output, dtype=float).reshape(-1)
+
+
 def compute_shap_for_random_forest(
     model: Any,
     features: np.ndarray,
