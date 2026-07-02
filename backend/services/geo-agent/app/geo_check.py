@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 import traceback
 from typing import Any
@@ -8,7 +9,8 @@ from typing import Any
 from sqlalchemy import text
 
 try:
-    from neo4j import Neo4jError, Query
+    from neo4j import Query
+    from neo4j.exceptions import Neo4jError
 except ImportError:  # pragma: no cover - keeps unit tests runnable before dependencies are installed.
     class Neo4jError(Exception):
         pass
@@ -61,13 +63,23 @@ RETURN count(*) > 0 as has_circular_flow
 """
 
 FRAUD_RING_PROXIMITY_QUERY = """
-MATCH (a:Account {id: $account_id}), (fraud:Account {is_fraud_seed: true})
+MATCH (a:Account {id: $account_id})
+MATCH (fraud:Account {is_fraud_seed: true})
+WHERE fraud.id <> $account_id
 MATCH p = shortestPath((a)-[*1..4]-(fraud))
 RETURN fraud.id as fraud_node, length(p) as distance
 ORDER BY distance ASC LIMIT 1
 """
 
 NEO4J_QUERY_TIMEOUT_SECONDS = 5.0
+
+
+def _neo4j_database() -> str | None:
+    """Target Neo4j database, read lazily so it respects a late-loaded .env.
+
+    Falls back to the driver default when unset.
+    """
+    return os.environ.get("NEO4J_DATABASE") or None
 
 
 def evaluate_geo(txn_id: str, account_id: str, db_connection, neo4j_driver) -> dict[str, Any]:
@@ -394,7 +406,7 @@ def _calculate_confidence(
 def _run_neo4j_single(neo4j_driver, query: str, params: dict[str, Any]) -> Any | None:
     started = time.perf_counter()
     try:
-        with neo4j_driver.session() as session:
+        with neo4j_driver.session(database=_neo4j_database()) as session:
             result = session.run(Query(query, timeout=NEO4J_QUERY_TIMEOUT_SECONDS), params)
             record = result.single()
     except Neo4jError as exc:
