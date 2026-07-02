@@ -28,6 +28,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 NEO4J_URI = os.environ.get("NEO4J_URI")
 NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME")
 NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD")
+NEO4J_DATABASE = os.environ.get("NEO4J_DATABASE") or None
 
 engine = (
     create_engine(
@@ -78,7 +79,8 @@ def startup_check_connections() -> None:
         logger.error("Neo4j credentials are not fully configured")
     else:
         try:
-            neo4j_driver.verify_connectivity()
+            with neo4j_driver.session(database=NEO4J_DATABASE) as session:
+                session.run("RETURN 1").consume()
             app.state.neo4j_available = True
         except Exception:
             logger.error("Geo Agent failed to connect to Neo4j:\n%s", traceback.format_exc())
